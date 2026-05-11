@@ -1,0 +1,6 @@
+{
+  "source_url": "https://api.github.com/repos/sunj-labs/canonical/tarball/main",
+  "auth_method": "Bearer",
+  "token_env": "CANONICAL_TOKEN",
+  "comment": "Canonical brownfield test target. Forked from dokuwiki/dokuwiki 2026-05-12. Per standards/canonical-test-repos.md — exists as canonical's validation surface, not as a product. See sunj-labs/canonical canonical#642."
+}
