@@ -1,0 +1,61 @@
+name: canonical-sync-test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure dispatcher is executable
+        run: chmod +x .claude/hooks/canonical-sync.sh
+
+      - name: Run canonical-sync.sh (curl fallback path)
+        env:
+          CANONICAL_TOKEN: ${{ secrets.CANONICAL_TOKEN }}
+        run: |
+          if [ -z "$CANONICAL_TOKEN" ]; then
+            echo "::error::CANONICAL_TOKEN secret not set on this repo."
+            echo "Set a fine-grained PAT (Contents:read on sunj-labs/canonical)"
+            echo "as the CANONICAL_TOKEN secret per onboard-repo Phase 2.4."
+            exit 1
+          fi
+          printf '{"cwd":"%s"}' "$PWD" | bash .claude/hooks/canonical-sync.sh
+
+      - name: Verify sync produced canonical substrate
+        run: |
+          if [ ! -d "$HOME/canonical-fresh/.claude/hooks/tests" ]; then
+            echo "::error::Sync ran but canonical-fresh/.claude/hooks/tests/ is missing."
+            echo "Inspect dispatcher output above for the actual failure path."
+            ls -la "$HOME/canonical-fresh/" 2>/dev/null || echo "(no canonical-fresh dir)"
+            exit 1
+          fi
+          echo "Substrate present:"
+          ls "$HOME/canonical-fresh/.claude/hooks/tests/" | head -20
+
+      - name: Run canonical hook tests
+        working-directory: ${{ env.HOME }}/canonical-fresh
+        run: |
+          shopt -s nullglob
+          tests=( .claude/hooks/tests/*.test.sh )
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "::warning::No hook tests under .claude/hooks/tests/"
+            exit 0
+          fi
+          fail=0
+          for t in "${tests[@]}"; do
+            echo "=== Running $t ==="
+            if bash "$t"; then
+              echo "PASS: $t"
+            else
+              echo "::error::FAIL: $t"
+              fail=1
+            fi
+          done
+          exit $fail
